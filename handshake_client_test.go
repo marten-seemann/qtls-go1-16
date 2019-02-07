@@ -2547,3 +2547,49 @@ func TestClientHandshakeContextCancellation(t *testing.T) {
 		t.Error("Client connection was not closed when the context was canceled")
 	}
 }
+
+func TestAdditionalExtensionsReceivedByClient(t *testing.T) {
+	c, s := net.Pipe()
+	done := make(chan bool)
+
+	config := testConfig.Clone()
+	config.MinVersion = VersionTLS13
+	config.MaxVersion = VersionTLS13
+	sExtraConf := &ExtraConfig{}
+	sExtraConf.GetExtensions = func(_ uint8) []Extension {
+		return []Extension{
+			{Type: 0x1337, Data: []byte("foobar")},
+		}
+	}
+	go func() {
+		Server(s, config, sExtraConf).Handshake()
+		s.Close()
+		done <- true
+	}()
+
+	var receivedExtensions bool
+	cExtraConf := &ExtraConfig{}
+	cExtraConf.ReceivedExtensions = func(handshakeMessageType uint8, exts []Extension) (Alert, error) {
+		receivedExtensions = true
+		if handshakeMessageType != typeEncryptedExtensions {
+			t.Errorf("expected handshake message type to be %d, but got %d", typeEncryptedExtensions, handshakeMessageType)
+		}
+		if len(exts) != 1 {
+			t.Errorf("expected to received 1 extension, got %d", len(exts))
+		}
+		if exts[0].Type != 0x1337 {
+			t.Errorf("expected extension type 0x1337, got %#x", exts[0].Type)
+		}
+		if string(exts[0].Data) != "foobar" {
+			t.Errorf("expection extension data to be foobar, got %s", exts[0].Data)
+		}
+		return 0, nil
+	}
+	err := Client(c, config, cExtraConf).Handshake()
+	if err != nil {
+		t.Errorf("expected client to complete handshake, got %s", err)
+	}
+	if !receivedExtensions {
+		t.Errorf("expected client to receive extensions")
+	}
+}
