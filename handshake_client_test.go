@@ -310,7 +310,7 @@ func (test *clientTest) run(t *testing.T, write bool) {
 		if config == nil {
 			config = testConfig
 		}
-		client := Client(clientConn, config)
+		client := Client(clientConn, config, nil)
 		defer client.Close()
 
 		if _, err := client.Write([]byte("hello\n")); err != nil {
@@ -1123,14 +1123,14 @@ func TestKeyLogTLS12(t *testing.T) {
 	go func() {
 		defer close(done)
 
-		if err := Server(s, serverConfig).Handshake(); err != nil {
+		if err := Server(s, serverConfig, nil).Handshake(); err != nil {
 			t.Errorf("server: %s", err)
 			return
 		}
 		s.Close()
 	}()
 
-	if err := Client(c, clientConfig).Handshake(); err != nil {
+	if err := Client(c, clientConfig, nil).Handshake(); err != nil {
 		t.Fatalf("client: %s", err)
 	}
 
@@ -1174,14 +1174,14 @@ func TestKeyLogTLS13(t *testing.T) {
 	go func() {
 		defer close(done)
 
-		if err := Server(s, serverConfig).Handshake(); err != nil {
+		if err := Server(s, serverConfig, nil).Handshake(); err != nil {
 			t.Errorf("server: %s", err)
 			return
 		}
 		s.Close()
 	}()
 
-	if err := Client(c, clientConfig).Handshake(); err != nil {
+	if err := Client(c, clientConfig, nil).Handshake(); err != nil {
 		t.Fatalf("client: %s", err)
 	}
 
@@ -1384,7 +1384,7 @@ func TestHostnameInSNI(t *testing.T) {
 		c, s := localPipe(t)
 
 		go func(host string) {
-			Client(c, &Config{ServerName: host, InsecureSkipVerify: true}).Handshake()
+			Client(c, &Config{ServerName: host, InsecureSkipVerify: true}, nil).Handshake()
 		}(tt.in)
 
 		var header [5]byte
@@ -1426,7 +1426,7 @@ func TestServerSelectingUnconfiguredCipherSuite(t *testing.T) {
 		client := Client(c, &Config{
 			ServerName:   "foo",
 			CipherSuites: []uint16{TLS_RSA_WITH_AES_128_GCM_SHA256},
-		})
+		}, nil)
 		errChan <- client.Handshake()
 	}()
 
@@ -1957,7 +1957,7 @@ func testVerifyPeerCertificate(t *testing.T, version uint16) {
 			config.Certificates[0].OCSPStaple = []byte("dummy ocsp")
 			test.configureServer(config, &serverCalled)
 
-			err = Server(s, config).Handshake()
+			err = Server(s, config, nil).Handshake()
 			s.Close()
 			done <- err
 		}()
@@ -1968,7 +1968,7 @@ func testVerifyPeerCertificate(t *testing.T, version uint16) {
 		config.Time = now
 		config.MaxVersion = version
 		test.configureClient(config, &clientCalled)
-		clientErr := Client(c, config).Handshake()
+		clientErr := Client(c, config, nil).Handshake()
 		c.Close()
 		serverErr := <-done
 
@@ -2008,13 +2008,13 @@ func TestFailedWrite(t *testing.T) {
 		done := make(chan bool)
 
 		go func() {
-			Server(s, testConfig).Handshake()
+			Server(s, testConfig, nil).Handshake()
 			s.Close()
 			done <- true
 		}()
 
 		brokenC := &brokenConn{Conn: c, breakAfter: breakAfter}
-		err := Client(brokenC, testConfig).Handshake()
+		err := Client(brokenC, testConfig, nil).Handshake()
 		if err != brokenConnErr {
 			t.Errorf("#%d: expected error from brokenConn but got %q", breakAfter, err)
 		}
@@ -2052,12 +2052,12 @@ func testBuffering(t *testing.T, version uint16) {
 	go func() {
 		config := testConfig.Clone()
 		config.MaxVersion = version
-		Server(serverWCC, config).Handshake()
+		Server(serverWCC, config, nil).Handshake()
 		serverWCC.Close()
 		done <- true
 	}()
 
-	err := Client(clientWCC, testConfig).Handshake()
+	err := Client(clientWCC, testConfig, nil).Handshake()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2100,12 +2100,12 @@ func TestAlertFlushing(t *testing.T) {
 	}}
 
 	go func() {
-		Server(serverWCC, serverConfig).Handshake()
+		Server(serverWCC, serverConfig, nil).Handshake()
 		serverWCC.Close()
 		done <- true
 	}()
 
-	err := Client(clientWCC, testConfig).Handshake()
+	err := Client(clientWCC, testConfig, nil).Handshake()
 	if err == nil {
 		t.Fatal("client unexpectedly returned no error")
 	}
@@ -2134,7 +2134,7 @@ func TestHandshakeRace(t *testing.T) {
 		c, s := localPipe(t)
 
 		go func() {
-			server := Server(s, testConfig)
+			server := Server(s, testConfig, nil)
 			if err := server.Handshake(); err != nil {
 				panic(err)
 			}
@@ -2152,7 +2152,7 @@ func TestHandshakeRace(t *testing.T) {
 		startRead := make(chan struct{})
 		readDone := make(chan struct{}, 1)
 
-		client := Client(c, testConfig)
+		client := Client(c, testConfig, nil)
 		go func() {
 			<-startWrite
 			var request [1]byte
@@ -2296,7 +2296,7 @@ func testGetClientCertificate(t *testing.T, version uint16) {
 
 		go func() {
 			defer s.Close()
-			server := Server(s, serverConfig)
+			server := Server(s, serverConfig, nil)
 			err := server.Handshake()
 
 			var cs ConnectionState
@@ -2306,7 +2306,7 @@ func testGetClientCertificate(t *testing.T, version uint16) {
 			done <- serverResult{cs, err}
 		}()
 
-		clientErr := Client(c, clientConfig).Handshake()
+		clientErr := Client(c, clientConfig, nil).Handshake()
 		c.Close()
 
 		result := <-done
@@ -2370,7 +2370,7 @@ RwBA9Xk1KBNF
 
 func TestCloseClientConnectionOnIdleServer(t *testing.T) {
 	clientConn, serverConn := localPipe(t)
-	client := Client(clientConn, testConfig.Clone())
+	client := Client(clientConn, testConfig.Clone(), nil)
 	go func() {
 		var b [1]byte
 		serverConn.Read(b[:])
