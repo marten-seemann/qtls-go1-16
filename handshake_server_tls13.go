@@ -235,6 +235,14 @@ GroupSelection:
 	}
 
 	c.serverName = hs.clientHello.serverName
+
+	if c.extraConfig != nil && c.extraConfig.ReceivedExtensions != nil {
+		if al, err := c.extraConfig.ReceivedExtensions(typeClientHello, hs.clientHello.additionalExtensions); err != nil {
+			c.sendAlert(al)
+			return err
+		}
+	}
+
 	return nil
 }
 
