@@ -121,6 +121,7 @@ type EncryptionLevel uint8
 
 const (
 	EncryptionHandshake EncryptionLevel = iota
+	Encryption0RTT
 	EncryptionApplication
 )
 
@@ -741,6 +742,7 @@ type ExtraConfig struct {
 
 	// If MaxEarlyData is greater than 0, the client will be allowed to send early
 	// data when resuming a session.
+	// Requires the AlternativeRecordLayer to be set.
 	//
 	// It has no meaning on the client.
 	MaxEarlyData uint32
@@ -1304,6 +1306,7 @@ func (c *config) BuildNameToCertificate() {
 
 const (
 	keyLogLabelTLS12           = "CLIENT_RANDOM"
+	keyLogLabelEarlyTraffic    = "CLIENT_EARLY_TRAFFIC_SECRET"
 	keyLogLabelClientHandshake = "CLIENT_HANDSHAKE_TRAFFIC_SECRET"
 	keyLogLabelServerHandshake = "SERVER_HANDSHAKE_TRAFFIC_SECRET"
 	keyLogLabelClientTraffic   = "CLIENT_TRAFFIC_SECRET_0"
