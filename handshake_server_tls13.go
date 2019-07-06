@@ -23,21 +23,22 @@ import (
 const maxClientPSKIdentities = 5
 
 type serverHandshakeStateTLS13 struct {
-	c               *Conn
-	clientHello     *clientHelloMsg
-	hello           *serverHelloMsg
-	sentDummyCCS    bool
-	usingPSK        bool
-	suite           *cipherSuiteTLS13
-	cert            *Certificate
-	sigAlg          SignatureScheme
-	earlySecret     []byte
-	sharedKey       []byte
-	handshakeSecret []byte
-	masterSecret    []byte
-	trafficSecret   []byte // client_application_traffic_secret_0
-	transcript      hash.Hash
-	clientFinished  []byte
+	c                   *Conn
+	clientHello         *clientHelloMsg
+	hello               *serverHelloMsg
+	encryptedExtensions *encryptedExtensionsMsg
+	sentDummyCCS        bool
+	usingPSK            bool
+	suite               *cipherSuiteTLS13
+	cert                *Certificate
+	sigAlg              SignatureScheme
+	earlySecret         []byte
+	sharedKey           []byte
+	handshakeSecret     []byte
+	masterSecret        []byte
+	trafficSecret       []byte // client_application_traffic_secret_0
+	transcript          hash.Hash
+	clientFinished      []byte
 }
 
 func (hs *serverHandshakeStateTLS13) handshake() error {
@@ -85,6 +86,7 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
 	c := hs.c
 
 	hs.hello = new(serverHelloMsg)
+	hs.encryptedExtensions = new(encryptedExtensionsMsg)
 
 	// TLS 1.3 froze the ServerHello.legacy_version field, and uses
 	// supported_versions instead. See RFC 8446, sections 4.1.3 and 4.2.1.
@@ -285,9 +287,15 @@ func (hs *serverHandshakeStateTLS13) checkForResumption() error {
 			continue
 		}
 
-		if hs.clientHello.earlyData && sessionState.maxEarlyData == 0 {
-			c.sendAlert(alertUnsupportedExtension)
-			return errors.New("tls: client sent unexpected early data")
+		if hs.clientHello.earlyData {
+			if sessionState.maxEarlyData == 0 {
+				c.sendAlert(alertUnsupportedExtension)
+				return errors.New("tls: client sent unexpected early data")
+			}
+
+			if c.extraConfig != nil && c.extraConfig.Accept0RTT != nil && c.extraConfig.Accept0RTT(sessionState.appData) {
+				hs.encryptedExtensions.earlyData = true
+			}
 		}
 
 		createdAt := time.Unix(int64(sessionState.createdAt), 0)
@@ -595,20 +603,18 @@ func (hs *serverHandshakeStateTLS13) sendServerParameters() error {
 		return err
 	}
 
-	encryptedExtensions := new(encryptedExtensionsMsg)
-
 	if len(hs.clientHello.alpnProtocols) > 0 {
 		if selectedProto := mutualProtocol(hs.clientHello.alpnProtocols, c.config.NextProtos); selectedProto != "" {
-			encryptedExtensions.alpnProtocol = selectedProto
+			hs.encryptedExtensions.alpnProtocol = selectedProto
 			c.clientProtocol = selectedProto
 		}
 	}
 	if hs.c.extraConfig != nil && hs.c.extraConfig.GetExtensions != nil {
-		encryptedExtensions.additionalExtensions = hs.c.extraConfig.GetExtensions(typeEncryptedExtensions)
+		hs.encryptedExtensions.additionalExtensions = hs.c.extraConfig.GetExtensions(typeEncryptedExtensions)
 	}
 
-	hs.transcript.Write(encryptedExtensions.marshal())
-	if _, err := c.writeRecord(recordTypeHandshake, encryptedExtensions.marshal()); err != nil {
+	hs.transcript.Write(hs.encryptedExtensions.marshal())
+	if _, err := c.writeRecord(recordTypeHandshake, hs.encryptedExtensions.marshal()); err != nil {
 		return err
 	}
 
