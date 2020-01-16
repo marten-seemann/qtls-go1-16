@@ -261,6 +261,9 @@ func (hs *clientHandshakeStateTLS13) processHelloRetryRequest() error {
 	}
 
 	hs.hello.earlyData = false // disable 0-RTT
+	if c.extraConfig != nil && c.extraConfig.Rejected0RTT != nil {
+		c.extraConfig.Rejected0RTT()
+	}
 
 	hs.transcript.Write(hs.hello.marshal())
 	if _, err := c.writeRecord(recordTypeHandshake, hs.hello.marshal()); err != nil {
@@ -425,6 +428,10 @@ func (hs *clientHandshakeStateTLS13) readServerParameters() error {
 			return errors.New("tls: server selected unadvertised ALPN protocol")
 		}
 		c.clientProtocol = encryptedExtensions.alpnProtocol
+	}
+	// Notify the caller if 0-RTT was rejected.
+	if !encryptedExtensions.earlyData && hs.hello.earlyData && c.extraConfig != nil && c.extraConfig.Rejected0RTT != nil {
+		c.extraConfig.Rejected0RTT()
 	}
 	return nil
 }
