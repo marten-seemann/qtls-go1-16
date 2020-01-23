@@ -439,6 +439,7 @@ func (hs *clientHandshakeStateTLS13) readServerParameters() error {
 	if !encryptedExtensions.earlyData && hs.hello.earlyData && c.extraConfig != nil && c.extraConfig.Rejected0RTT != nil {
 		c.extraConfig.Rejected0RTT()
 	}
+	c.used0RTT = encryptedExtensions.earlyData
 	return nil
 }
 
