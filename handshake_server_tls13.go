@@ -148,20 +148,34 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
 	hs.hello.sessionId = hs.clientHello.sessionId
 	hs.hello.compressionMethod = compressionNone
 
-	var preferenceList, supportedList []uint16
+	var preferenceList, supportedList, ourList []uint16
+	var useConfiguredCipherSuites bool
+	for _, suiteID := range c.config.CipherSuites {
+		for _, suite := range cipherSuitesTLS13 {
+			if suite.id == suiteID {
+				ourList = append(ourList, suiteID)
+				break
+			}
+		}
+	}
+	if len(ourList) > 0 {
+		useConfiguredCipherSuites = true
+	} else {
+		ourList = defaultCipherSuitesTLS13()
+	}
 	if c.config.PreferServerCipherSuites {
-		preferenceList = defaultCipherSuitesTLS13()
+		preferenceList = ourList
 		supportedList = hs.clientHello.cipherSuites
 
 		// If the client does not seem to have hardware support for AES-GCM,
 		// prefer other AEAD ciphers even if we prioritized AES-GCM ciphers
 		// by default.
-		if !aesgcmPreferred(hs.clientHello.cipherSuites) {
+		if !useConfiguredCipherSuites && !aesgcmPreferred(hs.clientHello.cipherSuites) {
 			preferenceList = deprioritizeAES(preferenceList)
 		}
 	} else {
 		preferenceList = hs.clientHello.cipherSuites
-		supportedList = defaultCipherSuitesTLS13()
+		supportedList = ourList
 
 		// If we don't have hardware support for AES-GCM, prefer other AEAD
 		// ciphers even if the client prioritized AES-GCM.
