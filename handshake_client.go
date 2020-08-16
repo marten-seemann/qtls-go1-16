@@ -882,7 +882,7 @@ func (c *Conn) verifyServerCertificate(certificates [][]byte) error {
 // certificateRequestInfoFromMsg generates a CertificateRequestInfo from a TLS
 // <= 1.2 CertificateRequest, making an effort to fill in missing information.
 func certificateRequestInfoFromMsg(vers uint16, certReq *certificateRequestMsg) *CertificateRequestInfo {
-	cri := &CertificateRequestInfo{
+	cri := &certificateRequestInfo{
 		AcceptableCAs: certReq.certificateAuthorities,
 		Version:       vers,
 	}
@@ -918,7 +918,7 @@ func certificateRequestInfoFromMsg(vers uint16, certReq *certificateRequestMsg) 
 				ECDSAWithP256AndSHA256, ECDSAWithP384AndSHA384, ECDSAWithP521AndSHA512,
 			}
 		}
-		return cri
+		return toCertificateRequestInfo(cri)
 	}
 
 	// Filter the signature schemes based on the certificate types.
@@ -941,7 +941,7 @@ func certificateRequestInfoFromMsg(vers uint16, certReq *certificateRequestMsg) 
 		}
 	}
 
-	return cri
+	return toCertificateRequestInfo(cri)
 }
 
 func (c *Conn) getClientCertificate(cri *CertificateRequestInfo) (*Certificate, error) {
