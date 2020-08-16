@@ -35,7 +35,7 @@ import (
 func Server(conn net.Conn, config *Config) *Conn {
 	c := &Conn{
 		conn:   conn,
-		config: config,
+		config: fromConfig(config),
 	}
 	c.handshakeFn = c.serverHandshake
 	return c
@@ -48,7 +48,7 @@ func Server(conn net.Conn, config *Config) *Conn {
 func Client(conn net.Conn, config *Config) *Conn {
 	c := &Conn{
 		conn:     conn,
-		config:   config,
+		config:   fromConfig(config),
 		isClient: true,
 	}
 	c.handshakeFn = c.clientHandshake

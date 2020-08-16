@@ -374,7 +374,7 @@ func (hs *serverHandshakeStateTLS13) pickCertificate() error {
 		return c.sendAlert(alertMissingExtension)
 	}
 
-	certificate, err := c.config.getCertificate(clientHelloInfo(c, hs.clientHello))
+	certificate, err := c.config.getCertificate(newClientHelloInfo(c, hs.clientHello))
 	if err != nil {
 		if err == errNoCertificates {
 			c.sendAlert(alertUnrecognizedName)
